@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import logout, authenticate, login
-from .models import Producto, Categoria
+from .models import Boleta, Producto, Categoria, detalle_boleta
 from ferreteria.carrito import Carrito
 from .forms import ContactoForm, CustomUserProfileForm, ProductoForm, CustomUserCreationForm
 from django.contrib import messages
@@ -168,3 +168,27 @@ def limpiar_carrito(request):
     carrito = Carrito(request)
     carrito.clear() 
     return redirect('tienda')
+
+def generarBoleta(request):
+    precio_total=0
+    for key, value in request.session['carrito'].items():
+        precio_total = precio_total + int(value['precio']) * int(value['cantidad'])
+    boleta = Boleta(total = precio_total)
+    boleta.save()
+    productos = []
+    for key, value in request.session['carrito'].items():
+            producto = Producto.objects.get(idProducto = value['producto_id'])
+            cant = value['cantidad']
+            subtotal = cant * int(value['precio'])
+            detalle = detalle_boleta(id_boleta = boleta, id_producto = producto, cantidad = cant, subtotal = subtotal)
+            detalle.save()
+            productos.append(detalle)
+    datos={
+        'productos':productos,
+        'fecha':boleta.fechaCompra,
+        'total': boleta.total
+    }
+    request.session['boleta'] = boleta.id_boleta
+    carrito = Carrito(request)
+    carrito.limpiar()
+    return render(request, 'detallecarrito.html',datos)
